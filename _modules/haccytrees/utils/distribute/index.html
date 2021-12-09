@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>haccytrees.utils.distribute &mdash; haccytrees  documentation</title>
+      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/css/custom.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex/" />
+    <link rel="search" title="Search" href="../../../../search/" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../../" class="icon icon-home"> haccytrees
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search/" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../">HaccyTrees Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Merger Forests</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reading/layout/">Merger Forest Layout</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reading/getting_started/">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reading/fragments/">Dealing with Fragments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reading/subhalo_model/">Subhalo Mass Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reading/branch_matrices/">Creating Branch-Matrices</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reading/visualization/">Visualization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reading/simulations/">Simulations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reading/examples/">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Creating Merger Forests</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../creating/">Creating Merger Forests</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Extra utilities</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/overview/">Utility Classes and Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/partition/">MPI Partitioning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/distribute/">MPI Distribution Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/temporary_storage/">Temporary Storage</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../">haccytrees</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../../">Module code</a> &raquo;</li>
+      <li>haccytrees.utils.distribute</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for haccytrees.utils.distribute</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">.partition</span> <span class="kn">import</span> <span class="n">Partition</span><span class="p">,</span> <span class="n">MPI</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Callable</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="n">TreeDataT</span> <span class="o">=</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="distribute"><a class="viewcode-back" href="../../../../utils/distribute/#haccytrees.utils.distribute.distribute">[docs]</a><span class="k">def</span> <span class="nf">distribute</span><span class="p">(</span>
+    <span class="n">partition</span><span class="p">:</span> <span class="n">Partition</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">TreeDataT</span><span class="p">,</span>
+    <span class="n">xyz_keys</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">verify_count</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TreeDataT</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Distribute data among MPI ranks according to data position and volume partition</span>
+
+<span class="sd">    The position of each TreeData element is given by the x, y, and z columns</span>
+<span class="sd">    specified with `xyz_keys`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    partition:</span>
+<span class="sd">        The MPI partition defining which rank should own which subvolume of the</span>
+<span class="sd">        data</span>
+
+<span class="sd">    data:</span>
+<span class="sd">        The treenode / coretree data that should be distributed</span>
+
+<span class="sd">    xyz_keys:</span>
+<span class="sd">        The columns in `data` that define the position of the object</span>
+
+<span class="sd">    verbose:</span>
+<span class="sd">        If True, print summary statistics of the distribute. If &gt; 1, print</span>
+<span class="sd">        statistics of each rank (i.e. how much data each rank sends to every</span>
+<span class="sd">        other rank).</span>
+
+<span class="sd">    verify_count:</span>
+<span class="sd">        If True, make sure that total number of objects is conserved</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    data: TreeDataT</span>
+<span class="sd">        The distributed treenode / coretree data (i.e. the data that this rank</span>
+<span class="sd">        owns)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># get some MPI and partition parameters</span>
+    <span class="n">nranks</span> <span class="o">=</span> <span class="n">partition</span><span class="o">.</span><span class="n">nranks</span>
+    <span class="k">if</span> <span class="n">nranks</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">data</span>
+
+    <span class="n">rank</span> <span class="o">=</span> <span class="n">partition</span><span class="o">.</span><span class="n">rank</span>
+    <span class="n">comm</span> <span class="o">=</span> <span class="n">partition</span><span class="o">.</span><span class="n">comm</span>
+    <span class="n">ranklist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">partition</span><span class="o">.</span><span class="n">ranklist</span><span class="p">)</span>
+
+    <span class="c1"># count number of particles we have</span>
+    <span class="n">total_to_send</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">xyz_keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+
+    <span class="k">if</span> <span class="n">total_to_send</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Check validity of coordinates</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+            <span class="n">_x</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">xyz_keys</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+            <span class="n">_min</span> <span class="o">=</span> <span class="n">_x</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+            <span class="n">_max</span> <span class="o">=</span> <span class="n">_x</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">_min</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">_max</span> <span class="o">&gt;</span> <span class="n">partition</span><span class="o">.</span><span class="n">box_size</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Error in distribute: position </span><span class="si">{</span><span class="n">xyz_keys</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s2"> out of range: [</span><span class="si">{</span><span class="n">_min</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">_max</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">,</span>
+                    <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span>
+                    <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">comm</span><span class="o">.</span><span class="n">Abort</span><span class="p">()</span>
+
+        <span class="c1"># Find home of each particle</span>
+        <span class="n">_i</span> <span class="o">=</span> <span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">xyz_keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">/</span> <span class="n">partition</span><span class="o">.</span><span class="n">extent</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+        <span class="n">_j</span> <span class="o">=</span> <span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">xyz_keys</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">/</span> <span class="n">partition</span><span class="o">.</span><span class="n">extent</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+        <span class="n">_k</span> <span class="o">=</span> <span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">xyz_keys</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span> <span class="o">/</span> <span class="n">partition</span><span class="o">.</span><span class="n">extent</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+
+        <span class="n">_i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">_i</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">partition</span><span class="o">.</span><span class="n">decomp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">_j</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">_j</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">partition</span><span class="o">.</span><span class="n">decomp</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">_k</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">_k</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">partition</span><span class="o">.</span><span class="n">decomp</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">home_idx</span> <span class="o">=</span> <span class="n">ranklist</span><span class="p">[</span><span class="n">_i</span><span class="p">,</span> <span class="n">_j</span><span class="p">,</span> <span class="n">_k</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">home_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+
+    <span class="c1"># sort by rank</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">home_idx</span><span class="p">)</span>
+    <span class="n">home_idx</span> <span class="o">=</span> <span class="n">home_idx</span><span class="p">[</span><span class="n">s</span><span class="p">]</span>
+
+    <span class="c1"># offsets and counts</span>
+    <span class="n">send_displacements</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">home_idx</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nranks</span><span class="p">))</span>
+    <span class="n">send_displacements</span> <span class="o">=</span> <span class="n">send_displacements</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">send_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">send_displacements</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">total_to_send</span><span class="p">)</span> <span class="o">-</span> <span class="n">send_displacements</span>
+    <span class="n">send_counts</span> <span class="o">=</span> <span class="n">send_counts</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+
+    <span class="c1"># announce to each rank how many objects will be sent</span>
+    <span class="n">recv_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">send_counts</span><span class="p">)</span>
+    <span class="n">comm</span><span class="o">.</span><span class="n">Alltoall</span><span class="p">(</span><span class="n">send_counts</span><span class="p">,</span> <span class="n">recv_counts</span><span class="p">)</span>
+    <span class="n">recv_displacements</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">recv_counts</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="c1"># number of objects that this rank will receive</span>
+    <span class="n">total_to_receive</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">recv_counts</span><span class="p">)</span>
+
+    <span class="c1"># debug message</span>
+    <span class="k">if</span> <span class="n">verbose</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nranks</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="n">i</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Distribute Debug Rank </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - rank has </span><span class="si">{</span><span class="n">total_to_send</span><span class="si">}</span><span class="s2"> particles&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - rank receives </span><span class="si">{</span><span class="n">total_to_receive</span><span class="si">}</span><span class="s2"> particles&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - send_counts:        </span><span class="si">{</span><span class="n">send_counts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - send_displacements: </span><span class="si">{</span><span class="n">send_displacements</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - recv_counts:        </span><span class="si">{</span><span class="n">recv_counts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - recv_displacements: </span><span class="si">{</span><span class="n">recv_displacements</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">comm</span><span class="o">.</span><span class="n">Barrier</span><span class="p">()</span>
+
+    <span class="c1"># send data all-to-all, each array individually</span>
+    <span class="n">data_new</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">total_to_receive</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">s</span><span class="p">]</span>
+        <span class="n">s_msg</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="p">,</span> <span class="p">(</span><span class="n">send_counts</span><span class="p">,</span> <span class="n">send_displacements</span><span class="p">),</span> <span class="n">d</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">char</span><span class="p">]</span>
+        <span class="n">r_msg</span> <span class="o">=</span> <span class="p">[</span><span class="n">data_new</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="p">(</span><span class="n">recv_counts</span><span class="p">,</span> <span class="n">recv_displacements</span><span class="p">),</span> <span class="n">d</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">char</span><span class="p">]</span>
+        <span class="n">comm</span><span class="o">.</span><span class="n">Alltoallv</span><span class="p">(</span><span class="n">s_msg</span><span class="p">,</span> <span class="n">r_msg</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">verify_count</span><span class="p">:</span>
+        <span class="n">local_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">xyz_keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]]),</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_new</span><span class="p">[</span><span class="n">xyz_keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]])],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span>
+        <span class="p">)</span>
+        <span class="n">global_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">local_counts</span><span class="p">)</span>
+        <span class="n">comm</span><span class="o">.</span><span class="n">Reduce</span><span class="p">(</span><span class="n">local_counts</span><span class="p">,</span> <span class="n">global_counts</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">SUM</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">global_counts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">global_counts</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Error in distribute: particle count during distribute was not maintained (</span><span class="si">{</span><span class="n">global_counts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">global_counts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span>
+                <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">comm</span><span class="o">.</span><span class="n">Abort</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">data_new</span></div>
+
+
+<div class="viewcode-block" id="overload"><a class="viewcode-back" href="../../../../utils/distribute/#haccytrees.utils.distribute.overload">[docs]</a><span class="k">def</span> <span class="nf">overload</span><span class="p">(</span>
+    <span class="n">partition</span><span class="p">:</span> <span class="n">Partition</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">TreeDataT</span><span class="p">,</span>
+    <span class="n">overload_length</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">xyz_keys</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Copy data within an overload length to the 26 neighboring ranks</span>
+
+<span class="sd">    This method assumes that the volume cube is periodic and will wrap the data</span>
+<span class="sd">    around the boundary interfaces.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    partition:</span>
+<span class="sd">        The MPI partition defining which rank should own which subvolume of the</span>
+<span class="sd">        data</span>
+
+<span class="sd">    data:</span>
+<span class="sd">        The treenode / coretree data that should be distributed</span>
+
+<span class="sd">    overload_length:</span>
+<span class="sd">        The thickness of the boundary layer that will be copied to the</span>
+<span class="sd">        neighboring rank</span>
+
+<span class="sd">    xyz_keys:</span>
+<span class="sd">        The columns in `data` that define the position of the object</span>
+
+<span class="sd">    verbose:</span>
+<span class="sd">        If True, print summary statistics of the distribute. If &gt; 1, print</span>
+<span class="sd">        statistics of each rank (i.e. how much data each rank sends to every</span>
+<span class="sd">        other rank).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    data: TreeDataT</span>
+<span class="sd">        The combined data of objects within the rank&#39;s subvolume as well as the</span>
+<span class="sd">        objects within the overload region of neighboring ranks</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+
+<span class="sd">    The function does not change the objects&#39; coordinates or alter any data.</span>
+<span class="sd">    Objects that have been overloaded accross the periodic boundaries will still</span>
+<span class="sd">    have the original positions. In case &quot;local&quot; coordinates are required, this</span>
+<span class="sd">    will need to be done manually after calling this function.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nranks</span> <span class="o">=</span> <span class="n">partition</span><span class="o">.</span><span class="n">nranks</span>
+    <span class="k">if</span> <span class="n">nranks</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">data</span>
+
+    <span class="n">rank</span> <span class="o">=</span> <span class="n">partition</span><span class="o">.</span><span class="n">rank</span>
+    <span class="n">comm</span> <span class="o">=</span> <span class="n">partition</span><span class="o">.</span><span class="n">comm</span>
+
+    <span class="n">neighbors</span> <span class="o">=</span> <span class="n">partition</span><span class="o">.</span><span class="n">neighbors</span>
+
+    <span class="c1"># Find all overload regions each particle should be in</span>
+    <span class="n">overload</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="p">(</span>
+        <span class="n">i</span><span class="p">,</span>
+        <span class="n">x</span><span class="p">,</span>
+    <span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">xyz_keys</span><span class="p">):</span>
+        <span class="n">_i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">)</span>
+        <span class="n">_i</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">partition</span><span class="o">.</span><span class="n">origin</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">overload_length</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="n">_i</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">partition</span><span class="o">.</span><span class="n">origin</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">partition</span><span class="o">.</span><span class="n">extent</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">overload_length</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">overload</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">_i</span>
+
+    <span class="c1"># Get particle indices of each of the 27 neighbors overload</span>
+    <span class="n">exchange_indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)]</span> <span class="o">*</span> <span class="n">nranks</span>
+
+    <span class="k">def</span> <span class="nf">add_exchange_indices</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">neighbors</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">!=</span> <span class="n">rank</span><span class="p">:</span>
+            <span class="n">exchange_indices</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">union1d</span><span class="p">(</span><span class="n">exchange_indices</span><span class="p">[</span><span class="n">n</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">mask</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]:</span>
+        <span class="c1"># face</span>
+        <span class="n">maski</span> <span class="o">=</span> <span class="n">overload</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">i</span>
+        <span class="n">add_exchange_indices</span><span class="p">(</span><span class="n">maski</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]:</span>
+            <span class="c1"># edge</span>
+            <span class="n">maskj</span> <span class="o">=</span> <span class="n">maski</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">overload</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">j</span><span class="p">)</span>
+            <span class="n">add_exchange_indices</span><span class="p">(</span><span class="n">maskj</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]:</span>
+                <span class="c1"># corner</span>
+                <span class="n">maskk</span> <span class="o">=</span> <span class="n">maskj</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">overload</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">k</span><span class="p">)</span>
+                <span class="n">add_exchange_indices</span><span class="p">(</span><span class="n">maskk</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]:</span>
+            <span class="c1"># edge</span>
+            <span class="n">maskk</span> <span class="o">=</span> <span class="n">maski</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">overload</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">k</span><span class="p">)</span>
+            <span class="n">add_exchange_indices</span><span class="p">(</span><span class="n">maskk</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]:</span>
+        <span class="c1"># face</span>
+        <span class="n">maskj</span> <span class="o">=</span> <span class="n">overload</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">j</span>
+        <span class="n">add_exchange_indices</span><span class="p">(</span><span class="n">maskj</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]:</span>
+            <span class="c1"># edge</span>
+            <span class="n">maskk</span> <span class="o">=</span> <span class="n">maskj</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">overload</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">k</span><span class="p">)</span>
+            <span class="n">add_exchange_indices</span><span class="p">(</span><span class="n">maskk</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]:</span>
+        <span class="c1"># face</span>
+        <span class="n">maskk</span> <span class="o">=</span> <span class="n">overload</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">k</span>
+        <span class="n">add_exchange_indices</span><span class="p">(</span><span class="n">maskk</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+
+    <span class="c1"># Check how many elements will be sent</span>
+    <span class="n">send_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">exchange_indices</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">send_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">exchange_indices</span><span class="p">)</span>
+    <span class="n">send_displacements</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">send_counts</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">total_to_send</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">send_counts</span><span class="p">)</span>
+
+    <span class="c1"># Check how many elements will be received</span>
+    <span class="n">recv_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">send_counts</span><span class="p">)</span>
+    <span class="n">comm</span><span class="o">.</span><span class="n">Alltoall</span><span class="p">(</span><span class="n">send_counts</span><span class="p">,</span> <span class="n">recv_counts</span><span class="p">)</span>
+    <span class="n">recv_displacements</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">recv_counts</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">total_to_receive</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">recv_counts</span><span class="p">)</span>
+
+    <span class="c1"># debug message</span>
+    <span class="k">if</span> <span class="n">verbose</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nranks</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="n">i</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Overload Debug Rank </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - rank sends    </span><span class="si">{</span><span class="n">total_to_send</span><span class="si">:</span><span class="s2">10d</span><span class="si">}</span><span class="s2"> particles&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - rank receives </span><span class="si">{</span><span class="n">total_to_receive</span><span class="si">:</span><span class="s2">10d</span><span class="si">}</span><span class="s2"> particles&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - send_counts:        </span><span class="si">{</span><span class="n">send_counts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - send_displacements: </span><span class="si">{</span><span class="n">send_displacements</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - recv_counts:        </span><span class="si">{</span><span class="n">recv_counts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - recv_displacements: </span><span class="si">{</span><span class="n">recv_displacements</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - overload_x: </span><span class="si">{</span><span class="n">overload</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - overload_y: </span><span class="si">{</span><span class="n">overload</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - overload_z: </span><span class="si">{</span><span class="n">overload</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - send_idx: </span><span class="si">{</span><span class="n">send_idx</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">comm</span><span class="o">.</span><span class="n">Barrier</span><span class="p">()</span>
+
+    <span class="c1"># send data all-to-all, each array individually</span>
+    <span class="n">data_new</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="c1"># prepare send-array</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">send_idx</span><span class="p">]</span>
+        <span class="c1"># prepare recv-array</span>
+        <span class="n">dr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">total_to_receive</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ds</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="c1"># exchange data</span>
+        <span class="n">s_msg</span> <span class="o">=</span> <span class="p">[</span><span class="n">ds</span><span class="p">,</span> <span class="p">(</span><span class="n">send_counts</span><span class="p">,</span> <span class="n">send_displacements</span><span class="p">),</span> <span class="n">ds</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">char</span><span class="p">]</span>
+        <span class="n">r_msg</span> <span class="o">=</span> <span class="p">[</span><span class="n">dr</span><span class="p">,</span> <span class="p">(</span><span class="n">recv_counts</span><span class="p">,</span> <span class="n">recv_displacements</span><span class="p">),</span> <span class="n">ds</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">char</span><span class="p">]</span>
+        <span class="n">comm</span><span class="o">.</span><span class="n">Alltoallv</span><span class="p">(</span><span class="n">s_msg</span><span class="p">,</span> <span class="n">r_msg</span><span class="p">)</span>
+        <span class="c1"># add received data to original data</span>
+        <span class="n">data_new</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">data</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">dr</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">data_new</span></div>
+
+
+<div class="viewcode-block" id="exchange"><a class="viewcode-back" href="../../../../utils/distribute/#haccytrees.utils.distribute.exchange">[docs]</a><span class="k">def</span> <span class="nf">exchange</span><span class="p">(</span>
+    <span class="n">partition</span><span class="p">:</span> <span class="n">Partition</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">local_keys</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">filter_key</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">do_all2all</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">replace_notfound_key</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Distribute data among neighboring ranks and all2all by a key</span>
+
+<span class="sd">    This function will assign data to the rank that owns the key. The keys that the local rank owns are given by</span>
+<span class="sd">    ``local_keys``, which should be unique. The keys of the data that the local rank currently has is in ``data[key]``.</span>
+<span class="sd">    Certain values can be ignored by setting filter_key to that value or by setting filter_key to a (vectorized) function</span>
+<span class="sd">    that returns ``True`` for keys that should be redistributed and ``False`` for keys that should be ignored.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    partition:</span>
+<span class="sd">        The MPI partition defining which rank should own which subvolume of the</span>
+<span class="sd">        data</span>
+
+<span class="sd">    data:</span>
+<span class="sd">        The treenode / coretree data that should be distributed</span>
+
+<span class="sd">    key:</span>
+<span class="sd">        The name of the column that contains the key values, indicating which rank they</span>
+<span class="sd">        should belong to</span>
+
+<span class="sd">    local_keys:</span>
+<span class="sd">        the key-values that this rank should own</span>
+
+<span class="sd">    verbose:</span>
+<span class="sd">        If True, print summary statistics of the exchange. If &gt; 1, print</span>
+<span class="sd">        statistics of each rank (i.e. how much data each rank sends to every</span>
+<span class="sd">        other rank).</span>
+
+<span class="sd">    filter_key:</span>
+<span class="sd">        value which keys should be ignored (and therefore will not be moved) or function</span>
+<span class="sd">        that applied to the key column returns a boolean array containing ``True``</span>
+<span class="sd">        (=exchange) and ``False`` (=ignore)</span>
+
+<span class="sd">    do_all2all:</span>
+<span class="sd">        if ``False``, will first exchange objects with the 26 neighboring ranks, and if</span>
+<span class="sd">        there are keys that could not be assigned among the neighbors, those will be</span>
+<span class="sd">        distributed all2all. If ``True``, will do an all2all exchange from the beginning</span>
+
+<span class="sd">    replace_notfound_key:</span>
+<span class="sd">        for objects that could not be assigned, the &quot;key&quot; value will be set to this value.</span>
+<span class="sd">        If ``None``, don&#39;t do anything.</span>
+
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    data: TreeDataT</span>
+<span class="sd">        All objects that belong to this rank, given by ``local_keys``</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    This function is designed for the usecase that most of the objects are already on</span>
+<span class="sd">    the correct rank. If that&#39;s not the case, performance might be poor.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">comm</span> <span class="o">=</span> <span class="n">partition</span><span class="o">.</span><span class="n">comm</span>
+    <span class="n">rank</span> <span class="o">=</span> <span class="n">partition</span><span class="o">.</span><span class="n">rank</span>
+    <span class="n">nranks</span> <span class="o">=</span> <span class="n">partition</span><span class="o">.</span><span class="n">nranks</span>
+    <span class="k">if</span> <span class="n">nranks</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">data</span>
+
+    <span class="k">if</span> <span class="n">do_all2all</span><span class="p">:</span>
+        <span class="c1"># exchange particles with all ranks</span>
+        <span class="n">exchange_comm</span> <span class="o">=</span> <span class="n">comm</span>
+        <span class="n">exchange_nranks</span> <span class="o">=</span> <span class="n">nranks</span>
+        <span class="n">exchange_Alltoall</span> <span class="o">=</span> <span class="n">exchange_comm</span><span class="o">.</span><span class="n">Alltoall</span>
+        <span class="n">exchange_Alltoallv</span> <span class="o">=</span> <span class="n">exchange_comm</span><span class="o">.</span><span class="n">Alltoallv</span>
+        <span class="n">exchange_Allgather</span> <span class="o">=</span> <span class="n">exchange_comm</span><span class="o">.</span><span class="n">Allgather</span>
+        <span class="n">exchange_Allgatherv</span> <span class="o">=</span> <span class="n">exchange_comm</span><span class="o">.</span><span class="n">Allgatherv</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># exchange particles with the 26 neighboring ranks</span>
+        <span class="n">exchange_comm</span> <span class="o">=</span> <span class="n">partition</span><span class="o">.</span><span class="n">comm26</span>
+        <span class="n">exchange_nranks</span> <span class="o">=</span> <span class="n">partition</span><span class="o">.</span><span class="n">neighbors26_count</span>
+        <span class="n">exchange_Alltoall</span> <span class="o">=</span> <span class="n">exchange_comm</span><span class="o">.</span><span class="n">Neighbor_alltoall</span>
+        <span class="n">exchange_Alltoallv</span> <span class="o">=</span> <span class="n">exchange_comm</span><span class="o">.</span><span class="n">Neighbor_alltoallv</span>
+        <span class="n">exchange_Allgather</span> <span class="o">=</span> <span class="n">exchange_comm</span><span class="o">.</span><span class="n">Neighbor_allgather</span>
+        <span class="n">exchange_Allgatherv</span> <span class="o">=</span> <span class="n">exchange_comm</span><span class="o">.</span><span class="n">Neighbor_allgatherv</span>
+
+    <span class="n">localcount</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+    <span class="n">data_keys</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">filter_key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">callable</span><span class="p">(</span><span class="n">filter_key</span><span class="p">):</span>
+            <span class="n">data_keys</span> <span class="o">=</span> <span class="n">data_keys</span><span class="p">[</span><span class="n">filter_key</span><span class="p">(</span><span class="n">data_keys</span><span class="p">)]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data_keys</span> <span class="o">=</span> <span class="n">data_keys</span><span class="p">[</span><span class="n">data_keys</span> <span class="o">!=</span> <span class="n">filter_key</span><span class="p">]</span>
+
+    <span class="c1"># find local matches</span>
+    <span class="n">islocal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">data_keys</span><span class="p">,</span> <span class="n">local_keys</span><span class="p">,</span> <span class="n">assume_unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">nonlocal_data</span> <span class="o">=</span> <span class="n">data_keys</span><span class="p">[</span><span class="o">~</span><span class="n">islocal</span><span class="p">]</span>
+
+    <span class="c1"># communicate nonlocal descendants</span>
+    <span class="n">local_orphan_count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">nonlocal_data</span><span class="p">)],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">orphan_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">exchange_nranks</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">exchange_Allgather</span><span class="p">(</span><span class="n">local_orphan_count</span><span class="p">,</span> <span class="n">orphan_counts</span><span class="p">)</span>
+    <span class="n">total_orphan_count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">orphan_counts</span><span class="p">)</span>
+    <span class="n">orphan_offsets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">orphan_counts</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">orphan_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">total_orphan_count</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">nonlocal_data</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">orphan_ranks</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">total_orphan_count</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">exchange_nranks</span><span class="p">):</span>
+        <span class="n">low</span> <span class="o">=</span> <span class="n">orphan_offsets</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">high</span> <span class="o">=</span> <span class="n">low</span> <span class="o">+</span> <span class="n">orphan_counts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">orphan_ranks</span><span class="p">[</span><span class="n">low</span><span class="p">:</span><span class="n">high</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+    <span class="n">exchange_Allgatherv</span><span class="p">(</span>
+        <span class="n">nonlocal_data</span><span class="p">,</span>
+        <span class="p">[</span><span class="n">orphan_data</span><span class="p">,</span> <span class="p">(</span><span class="n">orphan_counts</span><span class="p">,</span> <span class="n">orphan_offsets</span><span class="p">),</span> <span class="n">nonlocal_data</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">char</span><span class="p">],</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">verbose</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nranks</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="n">i</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Debug Desc Exchange (nonlocal), rank </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - send </span><span class="si">{</span><span class="n">local_orphan_count</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - recv </span><span class="si">{</span><span class="n">orphan_counts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">comm</span><span class="o">.</span><span class="n">Barrier</span><span class="p">()</span>
+
+    <span class="c1"># check if we have any of them</span>
+    <span class="n">orphan_islocal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">orphan_data</span><span class="p">,</span> <span class="n">local_keys</span><span class="p">)</span>
+
+    <span class="c1"># ask</span>
+    <span class="n">orphan_requests_send</span> <span class="o">=</span> <span class="n">orphan_data</span><span class="p">[</span><span class="n">orphan_islocal</span><span class="p">]</span>
+    <span class="n">orphan_requests_send_ranks</span> <span class="o">=</span> <span class="n">orphan_ranks</span><span class="p">[</span><span class="n">orphan_islocal</span><span class="p">]</span>
+    <span class="n">orphan_requests_send_offsets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span>
+        <span class="n">orphan_requests_send_ranks</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">exchange_nranks</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">orphan_requests_send_counts</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">orphan_requests_send_offsets</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="nb">len</span><span class="p">(</span><span class="n">orphan_requests_send</span><span class="p">))</span>
+        <span class="o">-</span> <span class="n">orphan_requests_send_offsets</span>
+    <span class="p">)</span>
+    <span class="n">orphan_requests_recv_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">orphan_requests_send_counts</span><span class="p">)</span>
+    <span class="n">exchange_Alltoall</span><span class="p">(</span><span class="n">orphan_requests_send_counts</span><span class="p">,</span> <span class="n">orphan_requests_recv_counts</span><span class="p">)</span>
+    <span class="n">orphan_requests_recv_total</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">orphan_requests_recv_counts</span><span class="p">)</span>
+    <span class="n">orphan_requests_recv_offsets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">orphan_requests_recv_counts</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="p">)</span>
+    <span class="n">orphan_requests_recv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+        <span class="n">orphan_requests_recv_total</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">orphan_requests_send</span><span class="o">.</span><span class="n">dtype</span>
+    <span class="p">)</span>
+    <span class="n">exchange_Alltoallv</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">orphan_requests_send</span><span class="p">,</span>
+            <span class="p">(</span><span class="n">orphan_requests_send_counts</span><span class="p">,</span> <span class="n">orphan_requests_send_offsets</span><span class="p">),</span>
+            <span class="n">orphan_requests_send</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">char</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="p">[</span>
+            <span class="n">orphan_requests_recv</span><span class="p">,</span>
+            <span class="p">(</span><span class="n">orphan_requests_recv_counts</span><span class="p">,</span> <span class="n">orphan_requests_recv_offsets</span><span class="p">),</span>
+            <span class="n">orphan_requests_recv</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">char</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">verbose</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nranks</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="n">i</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Debug Desc Exchange (request), rank </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - will request </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">orphan_islocal</span><span class="p">)</span><span class="si">}</span><span class="s2"> in total&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - send req </span><span class="si">{</span><span class="n">orphan_requests_send_counts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - recv req </span><span class="si">{</span><span class="n">orphan_requests_recv_counts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">comm</span><span class="o">.</span><span class="n">Barrier</span><span class="p">()</span>
+
+    <span class="c1"># verify that we don&#39;t aks ourselves for particles</span>
+    <span class="k">if</span> <span class="n">do_all2all</span> <span class="ow">and</span> <span class="p">(</span>
+        <span class="n">orphan_requests_send_counts</span><span class="p">[</span><span class="n">rank</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">orphan_requests_recv_counts</span><span class="p">[</span><span class="n">rank</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span>
+    <span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Error in exchange: rank </span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2"> is asking itself for an orphan halo: </span><span class="si">{</span><span class="n">orphan_requests_send_counts</span><span class="p">[</span><span class="n">rank</span><span class="p">]</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">orphan_requests_recv_counts</span><span class="p">[</span><span class="n">rank</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span>
+            <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">comm</span><span class="o">.</span><span class="n">Abort</span><span class="p">()</span>
+
+    <span class="c1"># prepare data to send</span>
+    <span class="n">orphan_requests_indices</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">orphan_requests_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">localcount</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">bool</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">exchange_nranks</span><span class="p">):</span>
+        <span class="n">req</span> <span class="o">=</span> <span class="n">orphan_requests_recv</span><span class="p">[</span>
+            <span class="n">orphan_requests_recv_offsets</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">:</span> <span class="n">orphan_requests_recv_offsets</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="o">+</span> <span class="n">orphan_requests_recv_counts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="p">]</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">req</span><span class="p">)</span>
+        <span class="n">orphan_requests_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">mask</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">orphan_requests_mask</span> <span class="o">|=</span> <span class="n">mask</span>
+    <span class="n">orphan_requests_send_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+        <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">orphan_requests_indices</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span>
+    <span class="p">)</span>
+    <span class="n">orphan_requests_recv_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">orphan_requests_send_counts</span><span class="p">)</span>
+    <span class="n">exchange_Alltoall</span><span class="p">(</span><span class="n">orphan_requests_send_counts</span><span class="p">,</span> <span class="n">orphan_requests_recv_counts</span><span class="p">)</span>
+    <span class="n">orphan_requests_recv_total</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">orphan_requests_recv_counts</span><span class="p">)</span>
+    <span class="n">orphan_requests_send_offsets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">orphan_requests_send_counts</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="p">)</span>
+    <span class="n">orphan_requests_recv_offsets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">orphan_requests_recv_counts</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="p">)</span>
+    <span class="n">orphan_requests_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">orphan_requests_indices</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">verbose</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nranks</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="n">i</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Debug Desc Exchange (to exchange), rank </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - send </span><span class="si">{</span><span class="n">orphan_requests_send_counts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - recv </span><span class="si">{</span><span class="n">orphan_requests_recv_counts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">comm</span><span class="o">.</span><span class="n">Barrier</span><span class="p">()</span>
+
+    <span class="n">data_new</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">orphan_requests_send</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">orphan_requests_indices</span><span class="p">]</span>
+        <span class="n">orphan_requests_recv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">orphan_requests_recv_total</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">exchange_Alltoallv</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">orphan_requests_send</span><span class="p">,</span>
+                <span class="p">(</span><span class="n">orphan_requests_send_counts</span><span class="p">,</span> <span class="n">orphan_requests_send_offsets</span><span class="p">),</span>
+                <span class="n">orphan_requests_send</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">char</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="p">[</span>
+                <span class="n">orphan_requests_recv</span><span class="p">,</span>
+                <span class="p">(</span><span class="n">orphan_requests_recv_counts</span><span class="p">,</span> <span class="n">orphan_requests_recv_offsets</span><span class="p">),</span>
+                <span class="n">orphan_requests_recv</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">char</span><span class="p">,</span>
+            <span class="p">],</span>
+        <span class="p">)</span>
+        <span class="n">data_new</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="o">~</span><span class="n">orphan_requests_mask</span><span class="p">],</span> <span class="n">orphan_requests_recv</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">verbose</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Exchange succeeded, verifying data integrity&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># comm.Barrier()</span>
+
+    <span class="c1"># Verification</span>
+    <span class="n">localcount_after</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_new</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+    <span class="n">localcount_missmatch</span> <span class="o">=</span> <span class="n">local_orphan_count</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="c1"># calculate new missmatch</span>
+    <span class="n">my_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">data_new</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+    <span class="n">my_data</span> <span class="o">=</span> <span class="n">my_data</span><span class="p">[</span><span class="n">my_data</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">islocal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">my_data</span><span class="p">,</span> <span class="n">local_keys</span><span class="p">,</span> <span class="n">assume_unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">missing_keys</span> <span class="o">=</span> <span class="n">my_data</span><span class="p">[</span><span class="o">~</span><span class="n">islocal</span><span class="p">]</span>
+    <span class="n">localcount_missmatch_after</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">missing_keys</span><span class="p">)</span>
+    <span class="n">localcounts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">localcount</span><span class="p">,</span>
+            <span class="n">localcount_after</span><span class="p">,</span>
+            <span class="n">localcount_missmatch</span><span class="p">,</span>
+            <span class="n">localcount_missmatch_after</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">totalcounts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">localcounts</span><span class="p">)</span>
+    <span class="n">comm</span><span class="o">.</span><span class="n">Allreduce</span><span class="p">(</span><span class="n">localcounts</span><span class="p">,</span> <span class="n">totalcounts</span><span class="p">)</span>
+    <span class="p">(</span>
+        <span class="n">totalcount_before</span><span class="p">,</span>
+        <span class="n">totalcount_after</span><span class="p">,</span>
+        <span class="n">totalcount_missmatch</span><span class="p">,</span>
+        <span class="n">totalcount_missmatch_after</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">=</span> <span class="n">totalcounts</span>
+
+    <span class="k">if</span> <span class="n">verbose</span> <span class="ow">and</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;exchange summary (</span><span class="si">{</span><span class="s1">&#39;all2all&#39;</span> <span class="k">if</span> <span class="n">do_all2all</span> <span class="k">else</span> <span class="s1">&#39;26-neighbors&#39;</span><span class="si">}</span><span class="s2">):&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;   Ntot -&gt; Ntot: </span><span class="si">{</span><span class="n">totalcount_before</span><span class="si">:</span><span class="s2">10d</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">totalcount_after</span><span class="si">:</span><span class="s2">10d</span><span class="si">}</span><span class="s2"> (should remain the same)&quot;</span>
+        <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;   Orph -&gt; Orph: </span><span class="si">{</span><span class="n">totalcount_missmatch</span><span class="si">:</span><span class="s2">10d</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">totalcount_missmatch_after</span><span class="si">:</span><span class="s2">10d</span><span class="si">}</span><span class="s2"> (should be 0 after)&quot;</span>
+        <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># did we conserve number of particles?</span>
+    <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">totalcount_before</span> <span class="o">!=</span> <span class="n">totalcount_after</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Error in exchange: Lost halos during progenitor exchange: </span><span class="si">{</span><span class="n">totalcount_before</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">totalcount_after</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span>
+            <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">comm</span><span class="o">.</span><span class="n">Abort</span><span class="p">()</span>
+
+    <span class="c1"># if we were not able to assign all orphans to the 26 neighbors, try all2all</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">do_all2all</span> <span class="ow">and</span> <span class="n">totalcount_missmatch_after</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">verbose</span> <span class="ow">and</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;exchange all2all since neighbor exchange was not able to assign all: </span><span class="si">{</span><span class="n">totalcount_missmatch</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">totalcount_missmatch_after</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">exchange</span><span class="p">(</span>
+            <span class="n">partition</span><span class="p">,</span>
+            <span class="n">data_new</span><span class="p">,</span>
+            <span class="n">key</span><span class="p">,</span>
+            <span class="n">local_keys</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+            <span class="n">filter_key</span><span class="o">=</span><span class="n">filter_key</span><span class="p">,</span>
+            <span class="n">do_all2all</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">replace_notfound_key</span><span class="o">=</span><span class="n">replace_notfound_key</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="c1"># if we are still not able to assign all orphans, replace key or abort after printing some debug messages</span>
+    <span class="k">if</span> <span class="n">replace_notfound_key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">localcount_missmatch_after</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">data_new</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="n">d</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">missing_keys</span><span class="p">)]</span> <span class="o">=</span> <span class="n">replace_notfound_key</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nranks</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="n">i</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">localcount_missmatch_after</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Warning from rank </span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2"> in exchange: Unable to assign all progenitors to correct ranks (failed for </span><span class="si">{</span><span class="n">localcount_missmatch_after</span><span class="si">}</span><span class="s2"> out of </span><span class="si">{</span><span class="n">localcount_missmatch</span><span class="si">}</span><span class="s2">)&quot;</span>
+                <span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not assign keys: &quot;</span><span class="p">,</span> <span class="n">missing_keys</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">comm</span><span class="o">.</span><span class="n">Barrier</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">totalcount_missmatch_after</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">replace_notfound_key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Error in exchange: Unable to assign all progenitors to correct ranks (tried to reassign </span><span class="si">{</span><span class="n">totalcount_missmatch</span><span class="si">}</span><span class="s2">, failed for </span><span class="si">{</span><span class="n">totalcount_missmatch_after</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span>
+                <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">comm</span><span class="o">.</span><span class="n">Abort</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Warning in exchange: Unable to assign all progenitors to correct ranks (tried to reassign </span><span class="si">{</span><span class="n">totalcount_missmatch</span><span class="si">}</span><span class="s2">, failed for </span><span class="si">{</span><span class="n">totalcount_missmatch_after</span><span class="si">}</span><span class="s2">), replacing missing values with </span><span class="si">{</span><span class="n">replace_notfound_key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">data_new</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2020, Michael Buehlmann.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

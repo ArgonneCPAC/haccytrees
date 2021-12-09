@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MPI Partitioning &mdash; haccytrees  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex/" />
+    <link rel="search" title="Search" href="../../search/" />
+    <link rel="next" title="MPI Distribution Algorithms" href="../distribute/" />
+    <link rel="prev" title="Utility Classes and Functions" href="../overview/" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../" class="icon icon-home"> haccytrees
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search/" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../">HaccyTrees Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Merger Forests</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../reading/layout/">Merger Forest Layout</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reading/getting_started/">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reading/fragments/">Dealing with Fragments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reading/subhalo_model/">Subhalo Mass Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reading/branch_matrices/">Creating Branch-Matrices</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reading/visualization/">Visualization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reading/simulations/">Simulations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reading/examples/">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Creating Merger Forests</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../creating/">Creating Merger Forests</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Extra utilities</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../overview/">Utility Classes and Functions</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">MPI Partitioning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../distribute/">MPI Distribution Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../temporary_storage/">Temporary Storage</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../">haccytrees</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../" class="icon icon-home"></a> &raquo;</li>
+      <li>MPI Partitioning</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/utils/partition.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="mpi-partitioning">
+<h1>MPI Partitioning<a class="headerlink" href="#mpi-partitioning" title="Permalink to this headline"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="haccytrees.utils.partition.Partition">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">haccytrees.utils.partition.</span></span><span class="sig-name descname"><span class="pre">Partition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">create_topo26</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mpi_waittime</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/haccytrees/utils/partition/#Partition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#haccytrees.utils.partition.Partition" title="Permalink to this definition"></a></dt>
+<dd><p>An MPI partition of a cubic volume</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box_size</strong> (<em>float</em>) – The length of the cubic volume</p></li>
+<li><p><strong>create_topo26</strong> (<em>boolean</em>) – If <cite>True</cite>, an additional graph communicator will be initialized
+connecting all 26 direct neighbors symmetrically</p></li>
+<li><p><strong>mpi_waittime</strong> (<em>float</em>) – Time in seconds for which the initialization will wait, can fix certain
+MPI issues if ranks are not ready (e.g. <cite>PG with index not found</cite>)</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition-examples admonition">
+<p class="admonition-title">Examples</p>
+<p>Using Partition on 8 MPI ranks to split a periodic unit-cube</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">partition</span> <span class="o">=</span> <span class="n">Partition</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">partition</span><span class="o">.</span><span class="n">rank</span>
+<span class="go">0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">partition</span><span class="o">.</span><span class="n">decomp</span>
+<span class="go">np.ndarray([2, 2, 2])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">partition</span><span class="o">.</span><span class="n">coordinates</span>
+<span class="go">np.ndarray([0, 0, 0])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">partition</span><span class="o">.</span><span class="n">origin</span>
+<span class="go">np.ndarray([0., 0., 0.])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">partition</span><span class="o">.</span><span class="n">extent</span>
+<span class="go">np.ndarray([0.5, 0.5, 0.5])</span>
+</pre></div>
+</div>
+</div>
+<dl class="py property">
+<dt class="sig sig-object py" id="haccytrees.utils.partition.Partition.box_size">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">box_size</span></span><a class="headerlink" href="#haccytrees.utils.partition.Partition.box_size" title="Permalink to this definition"></a></dt>
+<dd><p>the length of the full cubic volume</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="haccytrees.utils.partition.Partition.comm">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">comm</span></span><a class="headerlink" href="#haccytrees.utils.partition.Partition.comm" title="Permalink to this definition"></a></dt>
+<dd><p>3D Cartesian MPI Topology / Communicator</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="haccytrees.utils.partition.Partition.comm26">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">comm26</span></span><a class="headerlink" href="#haccytrees.utils.partition.Partition.comm26" title="Permalink to this definition"></a></dt>
+<dd><p>Graph MPI Topology / Communicator, connecting the neighboring ranks
+(symmetric)</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="haccytrees.utils.partition.Partition.coordinates">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">coordinates</span></span><a class="headerlink" href="#haccytrees.utils.partition.Partition.coordinates" title="Permalink to this definition"></a></dt>
+<dd><p>3D indices of this processor</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="haccytrees.utils.partition.Partition.decomp">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">decomp</span></span><a class="headerlink" href="#haccytrees.utils.partition.Partition.decomp" title="Permalink to this definition"></a></dt>
+<dd><p>number of ranks along each dimension</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+<dt class="field-even">Type</dt>
+<dd class="field-even"><p>the decomposition of the cubic volume</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="haccytrees.utils.partition.Partition.extent">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">extent</span></span><a class="headerlink" href="#haccytrees.utils.partition.Partition.extent" title="Permalink to this definition"></a></dt>
+<dd><p>Length along each axis of this processors subvolume (same for all procs)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="haccytrees.utils.partition.Partition.get_neighbor">
+<span class="sig-name descname"><span class="pre">get_neighbor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dz</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/haccytrees/utils/partition/#Partition.get_neighbor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#haccytrees.utils.partition.Partition.get_neighbor" title="Permalink to this definition"></a></dt>
+<dd><p>get the rank of the neighbor at relative position (dx, dy, dz)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dx</strong> (<em>int</em>) – relative position, one of <cite>[-1, 0, 1]</cite></p></li>
+<li><p><strong>dy</strong> (<em>int</em>) – relative position, one of <cite>[-1, 0, 1]</cite></p></li>
+<li><p><strong>dz</strong> (<em>int</em>) – relative position, one of <cite>[-1, 0, 1]</cite></p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="haccytrees.utils.partition.Partition.neighbors">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">neighbors</span></span><a class="headerlink" href="#haccytrees.utils.partition.Partition.neighbors" title="Permalink to this definition"></a></dt>
+<dd><p>a 3x3x3 array with the ranks of the neighboring processes
+(<cite>neighbors[1,1,1]</cite> is this processor)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="haccytrees.utils.partition.Partition.neighbors26">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">neighbors26</span></span><a class="headerlink" href="#haccytrees.utils.partition.Partition.neighbors26" title="Permalink to this definition"></a></dt>
+<dd><p>a flattened list of the unique neighboring ranks</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="haccytrees.utils.partition.Partition.neighbors26_count">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">neighbors26_count</span></span><a class="headerlink" href="#haccytrees.utils.partition.Partition.neighbors26_count" title="Permalink to this definition"></a></dt>
+<dd><p>number of unique neighboring ranks</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="haccytrees.utils.partition.Partition.nranks">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nranks</span></span><a class="headerlink" href="#haccytrees.utils.partition.Partition.nranks" title="Permalink to this definition"></a></dt>
+<dd><p>the total number of processors</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="haccytrees.utils.partition.Partition.origin">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">origin</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span></em><a class="headerlink" href="#haccytrees.utils.partition.Partition.origin" title="Permalink to this definition"></a></dt>
+<dd><p>Cartesian coordinates of the origin of this processor</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="haccytrees.utils.partition.Partition.rank">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">rank</span></span><a class="headerlink" href="#haccytrees.utils.partition.Partition.rank" title="Permalink to this definition"></a></dt>
+<dd><p>the MPI rank of this processor</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="haccytrees.utils.partition.Partition.ranklist">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ranklist</span></span><a class="headerlink" href="#haccytrees.utils.partition.Partition.ranklist" title="Permalink to this definition"></a></dt>
+<dd><p>A complete list of ranks, aranged by their coordinates.
+The array has shape <cite>partition.decomp</cite></p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2020, Michael Buehlmann.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
